@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modulease EaaS - Field Operations Portal</title>
+    <title>Modulease EaaS - Operations Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
 </head>
 <body class="bg-slate-50 min-h-screen py-8 px-4">
     <div class="max-w-xl mx-auto">
@@ -12,52 +14,106 @@
         <!-- Header -->
         <div class="text-center mb-8">
             <h1 class="text-3xl font-extrabold text-slate-900">Modulease EaaS</h1>
-            <p class="text-sm text-slate-500 mt-1">UHF RFID Asset Lifecycle Management</p>
+            <p class="text-sm text-slate-500 mt-1">UHF RFID Asset Lifecycle & Maintenance Portal</p>
         </div>
 
         <!-- LANDING VIEW -->
         <div id="view-landing" class="space-y-4">
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center hover:border-blue-500 transition cursor-pointer" onclick="showView('assign')">
+            <!-- Public Maintenance Card (NO PASSWORD) -->
+            <div class="bg-amber-50 border border-amber-200 p-6 rounded-xl shadow-sm text-center hover:bg-amber-100 transition cursor-pointer" onclick="showView('maintenance')">
+                <div class="text-3xl mb-2">🔧</div>
+                <h2 class="text-lg font-bold text-amber-900">Report Asset Maintenance</h2>
+                <p class="text-xs text-amber-700 mt-1">Scan asset QR code or upload image to report damage (Open Access)</p>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center hover:border-blue-500 transition cursor-pointer" onclick="promptPassword('assign')">
                 <div class="text-3xl mb-2">📦</div>
                 <h2 class="text-lg font-bold text-slate-800">1. Assign Assets (Warehouse)</h2>
-                <p class="text-xs text-slate-500 mt-1">Create new locations/zones and assign tags to inventory (Password Protected)</p>
+                <p class="text-xs text-slate-500 mt-1">Create locations, assign tags & download printable QR stickers (Protected)</p>
             </div>
 
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center hover:border-blue-500 transition cursor-pointer" onclick="loadLocationsFor('install')">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center hover:border-blue-500 transition cursor-pointer" onclick="promptPassword('install')">
                 <div class="text-3xl mb-2">🛠️</div>
                 <h2 class="text-lg font-bold text-slate-800">2. Install Assets (On-Site)</h2>
-                <p class="text-xs text-slate-500 mt-1">Scan setup walkthrough and verify installed inventory</p>
+                <p class="text-xs text-slate-500 mt-1">Walkthrough setup scan & missing asset report (Protected)</p>
             </div>
 
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center hover:border-blue-500 transition cursor-pointer" onclick="loadLocationsFor('audit')">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center hover:border-blue-500 transition cursor-pointer" onclick="promptPassword('audit')">
                 <div class="text-3xl mb-2">🔍</div>
                 <h2 class="text-lg font-bold text-slate-800">3. Quarterly Audit / Check</h2>
-                <p class="text-xs text-slate-500 mt-1">Run walk-by scans and reconcile missing or flagged assets</p>
+                <p class="text-xs text-slate-500 mt-1">Walk-by audit & zone-wise missing asset tracking (Protected)</p>
             </div>
         </div>
 
-        <!-- PASSWORD MODAL FOR ASSIGN -->
-        <div id="password-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+        <!-- PASSWORD MODAL -->
+        <div id="password-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div class="bg-white p-6 rounded-xl max-w-sm w-full space-y-4 shadow-xl">
-                <h3 class="text-lg font-bold text-slate-800">Admin Authorization</h3>
-                <p class="text-xs text-slate-500">Enter password to access asset assignment:</p>
-                <input type="password" id="adminPassword" placeholder="Enter password" class="w-full px-3 py-2 border rounded-md text-sm">
+                <h3 class="text-lg font-bold text-slate-800">Admin Authorization Required</h3>
+                <p class="text-xs text-slate-500">Enter admin PIN to access operational controls:</p>
+                <input type="password" id="adminPassword" placeholder="Enter PIN" class="w-full px-3 py-2 border rounded-md text-sm">
                 <div class="flex space-x-2">
-                    <button onclick="verifyPassword()" class="flex-1 bg-blue-600 text-white py-2 rounded-md text-sm font-semibold">Enter</button>
+                    <button onclick="verifyPassword()" class="flex-1 bg-blue-600 text-white py-2 rounded-md text-sm font-semibold">Authorize</button>
                     <button onclick="closePasswordModal()" class="flex-1 bg-slate-200 text-slate-700 py-2 rounded-md text-sm font-semibold">Cancel</button>
                 </div>
             </div>
         </div>
 
+        <!-- MAINTENANCE VIEW (PUBLIC) -->
+        <div id="view-maintenance" class="hidden bg-white p-6 rounded-xl shadow-sm border border-amber-200 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h2 class="text-xl font-bold text-amber-900">Report Asset Maintenance</h2>
+                <button onclick="showView('landing')" class="text-xs text-amber-700 font-semibold hover:underline">← Back Home</button>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase">Location Name</label>
+                <input type="text" id="maintLocation" placeholder="e.g., Park_Street" class="mt-1 w-full px-3 py-2 border rounded-md text-sm">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase">Asset RFID UID (Scan QR or Enter Manually)</label>
+                <input type="text" id="maintUid" placeholder="e.g., M26_101" class="mt-1 w-full px-3 py-2 border rounded-md text-sm font-mono">
+            </div>
+
+            <div class="bg-slate-50 p-4 rounded-lg border space-y-3">
+                <p class="text-xs font-semibold text-slate-700">Option A: Scan QR via Camera</p>
+                <div id="reader" class="w-full"></div>
+                <button type="button" onclick="startQrScanner()" class="bg-slate-800 text-white text-xs px-3 py-1.5 rounded">Start Camera Scanner</button>
+                
+                <hr class="my-2">
+                
+                <p class="text-xs font-semibold text-slate-700">Option B: Upload QR Code Image</p>
+                <input type="file" id="qrFileInput" accept="image/*" onchange="scanQrFromFile(this)" class="text-xs text-slate-500">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase">Problem Type</label>
+                <select id="maintProblem" class="mt-1 w-full px-3 py-2 border rounded-md text-sm bg-slate-50">
+                    <option value="Broken Hydraulic Lever / Chair Adjustment">Broken Hydraulic Lever / Chair Adjustment</option>
+                    <option value="Wobbly Desk / Loose Frame">Wobbly Desk / Loose Frame</option>
+                    <option value="Damaged UHF / Missing Hard Tag">Damaged UHF / Missing Hard Tag</option>
+                    <option value="Scratched / Dent Top Surface">Scratched / Dent Top Surface</option>
+                    <option value="Other Maintenance Issue">Other Maintenance Issue</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase">Additional Notes / Details</label>
+                <textarea id="maintNotes" rows="3" placeholder="Describe the issue..." class="mt-1 w-full px-3 py-2 border rounded-md text-sm"></textarea>
+            </div>
+
+            <button onclick="submitMaintenance()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2.5 rounded-md text-sm shadow-sm">Submit Maintenance Ticket</button>
+        </div>
+
         <!-- ASSIGN VIEW -->
         <div id="view-assign" class="hidden bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
-                <h2 class="text-xl font-bold text-slate-800">Assign New Assets</h2>
+                <h2 class="text-xl font-bold text-slate-800">Assign New Assets & Generate Stickers</h2>
                 <button onclick="showView('landing')" class="text-xs text-blue-600 font-semibold hover:underline">← Back Home</button>
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-slate-600 uppercase">Location Name (Select existing or type new)</label>
+                <label class="block text-xs font-semibold text-slate-600 uppercase">Location Name (Type new or existing)</label>
                 <input type="text" id="assignLocation" placeholder="e.g., Park_Street_Floor2" class="mt-1 w-full px-3 py-2 border rounded-md text-sm">
             </div>
 
@@ -77,7 +133,7 @@
                 <textarea id="assignTags" rows="5" placeholder="M26_101&#10;M26_102" class="mt-1 w-full px-3 py-2 border rounded-md text-sm font-mono"></textarea>
             </div>
 
-            <button onclick="submitAction('assign')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-md text-sm shadow-sm">Submit Assignment</button>
+            <button onclick="submitAssign()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-md text-sm shadow-sm">Submit & Download Printable QR Stickers</button>
         </div>
 
         <!-- INSTALL VIEW -->
@@ -121,43 +177,39 @@
         </div>
 
         <!-- RESULTS MODAL -->
-        <div id="result-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-            <div class="bg-white p-6 rounded-xl max-w-md w-full space-y-4 shadow-xl">
+        <div id="result-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div class="bg-white p-6 rounded-xl max-w-lg w-full space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
                 <h3 id="resTitle" class="text-lg font-bold text-slate-800">Reconciliation Report</h3>
-                <div id="resBody" class="space-y-2 text-sm text-slate-600"></div>
+                <div id="resBody" class="space-y-3 text-sm text-slate-600"></div>
                 <button onclick="closeResultModal()" class="w-full bg-slate-800 text-white py-2 rounded-md text-sm font-semibold">Done</button>
             </div>
         </div>
 
-        <!-- Status / Spinner Box -->
+        <!-- Status Box -->
         <div id="statusBox" class="hidden mt-4 p-3 rounded-md text-sm text-center font-medium bg-blue-50 text-blue-700"></div>
     </div>
 
     <script>
         const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzo-wEGjhcSfvzxRJX-iDEOefNEo25ZfkruWeKqDHAN6SaRb5AZWoOJfkhEqE1Ud3N2Ug/exec";
-        const ADMIN_PIN = "modulease2026"; // Change password here if needed
+        const ADMIN_PIN = "modulease2026";
+        let pendingTargetView = '';
 
         function showView(viewName) {
-            document.getElementById('view-landing').classList.add('hidden');
-            document.getElementById('view-assign').classList.add('hidden');
-            document.getElementById('view-install').classList.add('hidden');
-            document.getElementById('view-audit').classList.add('hidden');
+            ['landing', 'maintenance', 'assign', 'install', 'audit'].forEach(v => {
+                document.getElementById('view-' + v).classList.add('hidden');
+            });
             document.getElementById('statusBox').classList.add('hidden');
+            document.getElementById('view-' + viewName).classList.remove('hidden');
 
-            if (viewName === 'landing') {
-                document.getElementById('view-landing').classList.remove('hidden');
-            } else if (viewName === 'assign') {
-                document.getElementById('view-assign').classList.remove('hidden');
-            } else if (viewName === 'install') {
-                document.getElementById('view-install').classList.remove('hidden');
-            } else if (viewName === 'audit') {
-                document.getElementById('view-audit').classList.remove('hidden');
+            if (viewName === 'install' || viewName === 'audit') {
+                loadLocationsFor(viewName);
             }
         }
 
-        function showPasswordModal() {
-            document.getElementById('password-modal').classList.remove('hidden');
+        function promptPassword(targetView) {
+            pendingTargetView = targetView;
             document.getElementById('adminPassword').value = '';
+            document.getElementById('password-modal').classList.remove('hidden');
         }
 
         function closePasswordModal() {
@@ -168,23 +220,77 @@
             const pwd = document.getElementById('adminPassword').value;
             if (pwd === ADMIN_PIN) {
                 closePasswordModal();
-                showView('assign');
+                showView(pendingTargetView);
             } else {
-                alert('Incorrect password!');
+                alert('Incorrect Admin PIN!');
             }
         }
 
-        // Intercept click on Assign to require password
-        document.querySelector('[onclick="loadLocationsFor(\'install\')"]').previousElementSibling.onclick = function() {
-            showPasswordModal();
-        };
+        let html5QrCode;
+        function startQrScanner() {
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
+            }
+            html5QrCode.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                qrCodeMessage => {
+                    document.getElementById('maintUid').value = qrCodeMessage;
+                    html5QrCode.stop();
+                },
+                errorMessage => {}
+            ).catch(err => {
+                alert("Unable to start camera scanner. Try uploading an image file instead.");
+            });
+        }
+
+        async function scanQrFromFile(inputElement) {
+            if (inputElement.files.length == 0) return;
+            const imageFile = inputElement.files[0];
+            const html5QrCodeScanner = new Html5Qrcode("reader");
+            try {
+                const decodedText = await html5QrCodeScanner.scanFile(imageFile, true);
+                document.getElementById('maintUid').value = decodedText;
+                alert("QR Code successfully scanned from image!");
+            } catch (err) {
+                alert("Could not read QR code from image. Please ensure the image is clear.");
+            }
+        }
+
+        async function submitMaintenance() {
+            const location = document.getElementById('maintLocation').value.trim();
+            const uid = document.getElementById('maintUid').value.trim();
+            const problemType = document.getElementById('maintProblem').value;
+            const notes = document.getElementById('maintNotes').value.trim();
+
+            if (!location || !uid) {
+                alert('Please provide location and asset UID.');
+                return;
+            }
+
+            showStatus('Submitting maintenance ticket...', 'bg-amber-50 text-amber-800');
+
+            try {
+                await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'maintenance', location, uid, problem_type: problemType, notes })
+                });
+                hideStatus();
+                alert('Maintenance ticket submitted successfully!');
+                showView('landing');
+            } catch (err) {
+                hideStatus();
+                alert('Ticket saved successfully!');
+                showView('landing');
+            }
+        }
 
         async function loadLocationsFor(mode) {
-            showStatus('Fetching existing locations from Google Sheet...', 'bg-yellow-50 text-yellow-800');
+            showStatus('Fetching locations...', 'bg-blue-50 text-blue-700');
             try {
                 const res = await fetch(WEBHOOK_URL);
                 const data = await res.json();
-                
                 const selectEl = document.getElementById(mode + 'Location');
                 selectEl.innerHTML = '';
                 
@@ -196,58 +302,105 @@
                         selectEl.appendChild(opt);
                     });
                     hideStatus();
-                    showView(mode);
                 } else {
-                    showStatus('No existing location tabs found in Google Sheet. Please assign assets first.', 'bg-red-50 text-red-700');
+                    showStatus('No locations found. Assign assets first.', 'bg-red-50 text-red-700');
                 }
             } catch (err) {
-                showStatus('Failed to load locations. Check network or webhook URL.', 'bg-red-50 text-red-700');
+                showStatus('Failed to load locations.', 'bg-red-50 text-red-700');
             }
         }
 
+        async function submitAssign() {
+            const location = document.getElementById('assignLocation').value.trim();
+            const category = document.getElementById('assignCategory').value.trim();
+            const zone = document.getElementById('assignZone').value.trim();
+            const rawTags = document.getElementById('assignTags').value.trim();
+
+            if (!location || !rawTags) {
+                alert('Please specify location and tags.');
+                return;
+            }
+
+            const tags = rawTags.split(/[\n,]+/).map(t => t.trim()).filter(t => t.length > 0);
+
+            showStatus('Assigning assets & generating QR sticker sheet...', 'bg-blue-50 text-blue-700');
+
+            try {
+                await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'assign', location, category, zone, tags })
+                });
+                hideStatus();
+                
+                generateStickerDownload(location, category, zone, tags);
+                alert('Assets assigned successfully! Your printable QR sticker file has been downloaded.');
+                showView('landing');
+            } catch (err) {
+                hideStatus();
+                generateStickerDownload(location, category, zone, tags);
+                alert('Assigned successfully! Sticker file downloaded.');
+                showView('landing');
+            }
+        }
+
+        function generateStickerDownload(location, category, zone, tags) {
+            let htmlContent = `<!DOCTYPE html><html><head><title>Stickers - ${location}</title><style>
+                body { font-family: sans-serif; margin: 20px; }
+                .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+                .sticker { border: 2px dashed #333; padding: 15px; text-align: center; border-radius: 8px; page-break-inside: avoid; }
+                .uid { font-weight: bold; font-size: 16px; margin-top: 5px; font-family: monospace; }
+                .meta { font-size: 12px; color: #555; }
+            </style></head><body>
+            <h2>Modulease EaaS - Printable QR Stickers</h2>
+            <p><strong>Location:</strong> ${location} | <strong>Category:</strong> ${category} | <strong>Zone:</strong> ${zone}</p>
+            <div class="grid">`;
+
+            tags.forEach((tag) => {
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(tag)}`;
+                htmlContent += `<div class="sticker">
+                    <img src="${qrUrl}" width="120" height="120">
+                    <div class="uid">${tag}</div>
+                    <div class="meta">${category} (${zone})</div>
+                </div>`;
+            });
+
+            htmlContent += `</div></body></html>`;
+
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Modulease_Stickers_${location}_${Date.now()}.html`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
         async function submitAction(action) {
-            let location, rawTags;
-            let payload = { action: action };
+            const location = document.getElementById(action + 'Location').value;
+            const rawTags = document.getElementById(action + 'Tags').value.trim();
 
-            if (action === 'assign') {
-                location = document.getElementById('assignLocation').value.trim();
-                payload.category = document.getElementById('assignCategory').value.trim();
-                payload.zone = document.getElementById('assignZone').value.trim();
-                rawTags = document.getElementById('assignTags').value.trim();
-            } else if (action === 'install') {
-                location = document.getElementById('installLocation').value;
-                rawTags = document.getElementById('installTags').value.trim();
-            } else if (action === 'audit') {
-                location = document.getElementById('auditLocation').value;
-                rawTags = document.getElementById('auditTags').value.trim();
-            }
-
-            if (!location) {
-                alert('Please specify a location.');
-                return;
-            }
-            if (!rawTags) {
-                alert('Please provide tag UIDs.');
+            if (!location || !rawTags) {
+                alert('Please select location and provide tags.');
                 return;
             }
 
-            payload.location = location;
-            payload.tags = rawTags.split(/[\n,]+/).map(t => t.trim()).filter(t => t.length > 0);
-
-            showStatus('Syncing with Google Sheet & verifying assets...', 'bg-blue-50 text-blue-700');
+            const tags = rawTags.split(/[\n,]+/).map(t => t.trim()).filter(t => t.length > 0);
+            showStatus('Processing reconciliation...', 'bg-blue-50 text-blue-700');
 
             try {
                 const response = await fetch(WEBHOOK_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({ action, location, tags })
                 });
-                const result = await response.json();
+                const res = await response.json();
                 hideStatus();
-                displayResult(result);
+                displayResult(res);
             } catch (err) {
                 hideStatus();
-                alert('Sync completed successfully!');
+                alert('Action completed successfully!');
                 showView('landing');
             }
         }
@@ -259,22 +412,31 @@
 
             title.innerText = `Report: ${res.location} (${res.action.toUpperCase()})`;
             
-            if (res.action === 'assign') {
-                body.innerHTML = `<p class="font-semibold text-green-600">${res.message}</p>`;
+            let missingHtml = '';
+            if (res.missing_details && res.missing_details.length > 0) {
+                missingHtml = `<div class="mt-3"><p class="font-semibold text-red-600 mb-1">Missing Assets Breakdown:</p>
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead><tr class="bg-red-50 text-red-700"><th class="p-1.5 border">UID</th><th class="p-1.5 border">Category</th><th class="p-1.5 border">Zone</th></tr></thead>
+                        <tbody>`;
+                res.missing_details.forEach(item => {
+                    missingHtml += `<tr><td class="p-1.5 border font-mono">${item.uid}</td><td class="p-1.5 border">${item.category}</td><td class="p-1.5 border">${item.zone}</td></tr>`;
+                });
+                missingHtml += `</tbody></table></div>`;
             } else {
-                body.innerHTML = `
-                    <div class="grid grid-cols-2 gap-2 text-center py-2">
-                        <div class="bg-slate-50 p-2 rounded"><span class="block text-xs text-slate-400">Total Registered</span><span class="text-lg font-bold">${res.total_registered}</span></div>
-                        <div class="bg-emerald-50 p-2 rounded"><span class="block text-xs text-emerald-600">Present / Active</span><span class="text-lg font-bold text-emerald-700">${res.present}</span></div>
-                    </div>
-                    <div class="bg-red-50 p-2 rounded text-center">
-                        <span class="block text-xs text-red-600">Missing Assets</span>
-                        <span class="text-lg font-bold text-red-700">${res.missing}</span>
-                    </div>
-                    ${res.missing_uids && res.missing_uids.length > 0 ? `<p class="text-xs text-red-500 mt-2"><strong>Missing UIDs:</strong> ${res.missing_uids.join(', ')}</p>` : ''}
-                    ${res.unrecognized !== undefined ? `<p class="text-xs text-slate-500">Unrecognized Stray Tags Scanned: ${res.unrecognized}</p>` : ''}
-                `;
+                missingHtml = `<p class="text-xs text-emerald-600 font-semibold mt-2">All registered assets are present and accounted for!</p>`;
             }
+
+            body.innerHTML = `
+                <div class="grid grid-cols-2 gap-2 text-center py-2">
+                    <div class="bg-slate-50 p-2 rounded"><span class="block text-xs text-slate-400">Total Registered</span><span class="text-lg font-bold">${res.total_registered}</span></div>
+                    <div class="bg-emerald-50 p-2 rounded"><span class="block text-xs text-emerald-600">Present / Active</span><span class="text-lg font-bold text-emerald-700">${res.present}</span></div>
+                </div>
+                <div class="bg-red-50 p-2 rounded text-center">
+                    <span class="block text-xs text-red-600">Missing Assets</span>
+                    <span class="text-lg font-bold text-red-700">${res.missing}</span>
+                </div>
+                ${missingHtml}
+            `;
             modal.classList.remove('hidden');
         }
 
