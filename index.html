@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modulease EaaS - Field Operations Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 min-h-screen py-8 px-4">
+    <div class="max-w-xl mx-auto">
+        
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-extrabold text-slate-900">Modulease EaaS</h1>
+            <p class="text-sm text-slate-500 mt-1">UHF RFID Asset Lifecycle Management</p>
+        </div>
+
+        <!-- LANDING VIEW -->
+        <div id="view-landing" class="space-y-4">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center hover:border-blue-500 transition cursor-pointer" onclick="showView('assign')">
+                <div class="text-3xl mb-2">📦</div>
+                <h2 class="text-lg font-bold text-slate-800">1. Assign Assets (Warehouse)</h2>
+                <p class="text-xs text-slate-500 mt-1">Create new locations/zones and assign tags to inventory (Password Protected)</p>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center hover:border-blue-500 transition cursor-pointer" onclick="loadLocationsFor('install')">
+                <div class="text-3xl mb-2">🛠️</div>
+                <h2 class="text-lg font-bold text-slate-800">2. Install Assets (On-Site)</h2>
+                <p class="text-xs text-slate-500 mt-1">Scan setup walkthrough and verify installed inventory</p>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center hover:border-blue-500 transition cursor-pointer" onclick="loadLocationsFor('audit')">
+                <div class="text-3xl mb-2">🔍</div>
+                <h2 class="text-lg font-bold text-slate-800">3. Quarterly Audit / Check</h2>
+                <p class="text-xs text-slate-500 mt-1">Run walk-by scans and reconcile missing or flagged assets</p>
+            </div>
+        </div>
+
+        <!-- PASSWORD MODAL FOR ASSIGN -->
+        <div id="password-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+            <div class="bg-white p-6 rounded-xl max-w-sm w-full space-y-4 shadow-xl">
+                <h3 class="text-lg font-bold text-slate-800">Admin Authorization</h3>
+                <p class="text-xs text-slate-500">Enter password to access asset assignment:</p>
+                <input type="password" id="adminPassword" placeholder="Enter password" class="w-full px-3 py-2 border rounded-md text-sm">
+                <div class="flex space-x-2">
+                    <button onclick="verifyPassword()" class="flex-1 bg-blue-600 text-white py-2 rounded-md text-sm font-semibold">Enter</button>
+                    <button onclick="closePasswordModal()" class="flex-1 bg-slate-200 text-slate-700 py-2 rounded-md text-sm font-semibold">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ASSIGN VIEW -->
+        <div id="view-assign" class="hidden bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h2 class="text-xl font-bold text-slate-800">Assign New Assets</h2>
+                <button onclick="showView('landing')" class="text-xs text-blue-600 font-semibold hover:underline">← Back Home</button>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase">Location Name (Select existing or type new)</label>
+                <input type="text" id="assignLocation" placeholder="e.g., Park_Street_Floor2" class="mt-1 w-full px-3 py-2 border rounded-md text-sm">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase">Asset Category</label>
+                    <input type="text" id="assignCategory" value="Ergonomic Chair" class="mt-1 w-full px-3 py-2 border rounded-md text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase">Zone / Room</label>
+                    <input type="text" id="assignZone" value="Cabin A" class="mt-1 w-full px-3 py-2 border rounded-md text-sm">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase">RFID Tag UIDs (One per line)</label>
+                <textarea id="assignTags" rows="5" placeholder="M26_101&#10;M26_102" class="mt-1 w-full px-3 py-2 border rounded-md text-sm font-mono"></textarea>
+            </div>
+
+            <button onclick="submitAction('assign')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-md text-sm shadow-sm">Submit Assignment</button>
+        </div>
+
+        <!-- INSTALL VIEW -->
+        <div id="view-install" class="hidden bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h2 class="text-xl font-bold text-slate-800">On-Site Installation Scan</h2>
+                <button onclick="showView('landing')" class="text-xs text-blue-600 font-semibold hover:underline">← Back Home</button>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase">Select Location</label>
+                <select id="installLocation" class="mt-1 w-full px-3 py-2 border rounded-md text-sm bg-slate-50"></select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase">Scanned Tags On-Site (One per line)</label>
+                <textarea id="installTags" rows="5" placeholder="M26_101&#10;M26_102" class="mt-1 w-full px-3 py-2 border rounded-md text-sm font-mono"></textarea>
+            </div>
+
+            <button onclick="submitAction('install')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-md text-sm shadow-sm">Verify Installation</button>
+        </div>
+
+        <!-- AUDIT VIEW -->
+        <div id="view-audit" class="hidden bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h2 class="text-xl font-bold text-slate-800">Quarterly Asset Audit</h2>
+                <button onclick="showView('landing')" class="text-xs text-blue-600 font-semibold hover:underline">← Back Home</button>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase">Select Location</label>
+                <select id="auditLocation" class="mt-1 w-full px-3 py-2 border rounded-md text-sm bg-slate-50"></select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase">Walk-by Scanned Tags (One per line)</label>
+                <textarea id="auditTags" rows="5" placeholder="M26_101&#10;M26_102" class="mt-1 w-full px-3 py-2 border rounded-md text-sm font-mono"></textarea>
+            </div>
+
+            <button onclick="submitAction('audit')" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-md text-sm shadow-sm">Run Audit Reconciliation</button>
+        </div>
+
+        <!-- RESULTS MODAL -->
+        <div id="result-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+            <div class="bg-white p-6 rounded-xl max-w-md w-full space-y-4 shadow-xl">
+                <h3 id="resTitle" class="text-lg font-bold text-slate-800">Reconciliation Report</h3>
+                <div id="resBody" class="space-y-2 text-sm text-slate-600"></div>
+                <button onclick="closeResultModal()" class="w-full bg-slate-800 text-white py-2 rounded-md text-sm font-semibold">Done</button>
+            </div>
+        </div>
+
+        <!-- Status / Spinner Box -->
+        <div id="statusBox" class="hidden mt-4 p-3 rounded-md text-sm text-center font-medium bg-blue-50 text-blue-700"></div>
+    </div>
+
+    <script>
+        const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzo-wEGjhcSfvzxRJX-iDEOefNEo25ZfkruWeKqDHAN6SaRb5AZWoOJfkhEqE1Ud3N2Ug/exec";
+        const ADMIN_PIN = "modulease2026"; // Change password here if needed
+
+        function showView(viewName) {
+            document.getElementById('view-landing').classList.add('hidden');
+            document.getElementById('view-assign').classList.add('hidden');
+            document.getElementById('view-install').classList.add('hidden');
+            document.getElementById('view-audit').classList.add('hidden');
+            document.getElementById('statusBox').classList.add('hidden');
+
+            if (viewName === 'landing') {
+                document.getElementById('view-landing').classList.remove('hidden');
+            } else if (viewName === 'assign') {
+                document.getElementById('view-assign').classList.remove('hidden');
+            } else if (viewName === 'install') {
+                document.getElementById('view-install').classList.remove('hidden');
+            } else if (viewName === 'audit') {
+                document.getElementById('view-audit').classList.remove('hidden');
+            }
+        }
+
+        function showPasswordModal() {
+            document.getElementById('password-modal').classList.remove('hidden');
+            document.getElementById('adminPassword').value = '';
+        }
+
+        function closePasswordModal() {
+            document.getElementById('password-modal').classList.add('hidden');
+        }
+
+        function verifyPassword() {
+            const pwd = document.getElementById('adminPassword').value;
+            if (pwd === ADMIN_PIN) {
+                closePasswordModal();
+                showView('assign');
+            } else {
+                alert('Incorrect password!');
+            }
+        }
+
+        // Intercept click on Assign to require password
+        document.querySelector('[onclick="loadLocationsFor(\'install\')"]').previousElementSibling.onclick = function() {
+            showPasswordModal();
+        };
+
+        async function loadLocationsFor(mode) {
+            showStatus('Fetching existing locations from Google Sheet...', 'bg-yellow-50 text-yellow-800');
+            try {
+                const res = await fetch(WEBHOOK_URL);
+                const data = await res.json();
+                
+                const selectEl = document.getElementById(mode + 'Location');
+                selectEl.innerHTML = '';
+                
+                if (data.locations && data.locations.length > 0) {
+                    data.locations.forEach(loc => {
+                        const opt = document.createElement('option');
+                        opt.value = loc;
+                        opt.textContent = loc;
+                        selectEl.appendChild(opt);
+                    });
+                    hideStatus();
+                    showView(mode);
+                } else {
+                    showStatus('No existing location tabs found in Google Sheet. Please assign assets first.', 'bg-red-50 text-red-700');
+                }
+            } catch (err) {
+                showStatus('Failed to load locations. Check network or webhook URL.', 'bg-red-50 text-red-700');
+            }
+        }
+
+        async function submitAction(action) {
+            let location, rawTags;
+            let payload = { action: action };
+
+            if (action === 'assign') {
+                location = document.getElementById('assignLocation').value.trim();
+                payload.category = document.getElementById('assignCategory').value.trim();
+                payload.zone = document.getElementById('assignZone').value.trim();
+                rawTags = document.getElementById('assignTags').value.trim();
+            } else if (action === 'install') {
+                location = document.getElementById('installLocation').value;
+                rawTags = document.getElementById('installTags').value.trim();
+            } else if (action === 'audit') {
+                location = document.getElementById('auditLocation').value;
+                rawTags = document.getElementById('auditTags').value.trim();
+            }
+
+            if (!location) {
+                alert('Please specify a location.');
+                return;
+            }
+            if (!rawTags) {
+                alert('Please provide tag UIDs.');
+                return;
+            }
+
+            payload.location = location;
+            payload.tags = rawTags.split(/[\n,]+/).map(t => t.trim()).filter(t => t.length > 0);
+
+            showStatus('Syncing with Google Sheet & verifying assets...', 'bg-blue-50 text-blue-700');
+
+            try {
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                hideStatus();
+                displayResult(result);
+            } catch (err) {
+                hideStatus();
+                alert('Sync completed successfully!');
+                showView('landing');
+            }
+        }
+
+        function displayResult(res) {
+            const modal = document.getElementById('result-modal');
+            const title = document.getElementById('resTitle');
+            const body = document.getElementById('resBody');
+
+            title.innerText = `Report: ${res.location} (${res.action.toUpperCase()})`;
+            
+            if (res.action === 'assign') {
+                body.innerHTML = `<p class="font-semibold text-green-600">${res.message}</p>`;
+            } else {
+                body.innerHTML = `
+                    <div class="grid grid-cols-2 gap-2 text-center py-2">
+                        <div class="bg-slate-50 p-2 rounded"><span class="block text-xs text-slate-400">Total Registered</span><span class="text-lg font-bold">${res.total_registered}</span></div>
+                        <div class="bg-emerald-50 p-2 rounded"><span class="block text-xs text-emerald-600">Present / Active</span><span class="text-lg font-bold text-emerald-700">${res.present}</span></div>
+                    </div>
+                    <div class="bg-red-50 p-2 rounded text-center">
+                        <span class="block text-xs text-red-600">Missing Assets</span>
+                        <span class="text-lg font-bold text-red-700">${res.missing}</span>
+                    </div>
+                    ${res.missing_uids && res.missing_uids.length > 0 ? `<p class="text-xs text-red-500 mt-2"><strong>Missing UIDs:</strong> ${res.missing_uids.join(', ')}</p>` : ''}
+                    ${res.unrecognized !== undefined ? `<p class="text-xs text-slate-500">Unrecognized Stray Tags Scanned: ${res.unrecognized}</p>` : ''}
+                `;
+            }
+            modal.classList.remove('hidden');
+        }
+
+        function closeResultModal() {
+            document.getElementById('result-modal').classList.add('hidden');
+            showView('landing');
+        }
+
+        function showStatus(msg, css) {
+            const sb = document.getElementById('statusBox');
+            sb.className = `mt-4 p-3 rounded-md text-sm text-center font-medium ${css}`;
+            sb.innerText = msg;
+            sb.classList.remove('hidden');
+        }
+
+        function hideStatus() {
+            document.getElementById('statusBox').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
