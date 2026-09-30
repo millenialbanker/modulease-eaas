@@ -29,7 +29,7 @@
             <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center hover:border-blue-500 transition cursor-pointer" onclick="promptPassword('assign')">
                 <div class="text-3xl mb-2">📦</div>
                 <h2 class="text-lg font-bold text-slate-800">1. Assign Assets (Warehouse)</h2>
-                <p class="text-xs text-slate-500 mt-1">Create locations, assign tags & download printable QR stickers (Protected)</p>
+                <p class="text-xs text-slate-500 mt-1">Create locations, assign tags & generate A4 PDF QR stickers (Protected)</p>
             </div>
 
             <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center hover:border-blue-500 transition cursor-pointer" onclick="promptPassword('install')">
@@ -58,7 +58,7 @@
             </div>
         </div>
 
-        <!-- MAINTENANCE VIEW (PUBLIC) -->
+        <!-- MAINTENANCE VIEW (PUBLIC - QR Scan / Upload Only) -->
         <div id="view-maintenance" class="hidden bg-white p-6 rounded-xl shadow-sm border border-amber-200 space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
                 <h2 class="text-xl font-bold text-amber-900">Report Asset Maintenance</h2>
@@ -70,11 +70,15 @@
                 <input type="text" id="maintLocation" placeholder="e.g., Park_Street" class="mt-1 w-full px-3 py-2 border rounded-md text-sm">
             </div>
 
+            <!-- Asset ID status badge (No manual input box) -->
             <div>
-                <label class="block text-xs font-semibold text-slate-600 uppercase">Asset RFID UID (Scan QR or Enter Manually)</label>
-                <input type="text" id="maintUid" placeholder="e.g., M26_101" class="mt-1 w-full px-3 py-2 border rounded-md text-sm font-mono">
+                <label class="block text-xs font-semibold text-slate-600 uppercase">Detected Asset ID (From QR Scan/Upload)</label>
+                <div id="scannedBadge" class="mt-1 p-3 bg-slate-100 border rounded-md text-sm font-mono text-slate-500 text-center">
+                    No QR code scanned yet. Use camera or upload below.
+                </div>
             </div>
 
+            <!-- QR Scanner & Image Upload Section -->
             <div class="bg-slate-50 p-4 rounded-lg border space-y-3">
                 <p class="text-xs font-semibold text-slate-700">Option A: Scan QR via Camera</p>
                 <div id="reader" class="w-full"></div>
@@ -108,7 +112,7 @@
         <!-- ASSIGN VIEW -->
         <div id="view-assign" class="hidden bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
-                <h2 class="text-xl font-bold text-slate-800">Assign New Assets & Generate Stickers</h2>
+                <h2 class="text-xl font-bold text-slate-800">Assign New Assets & PDF Stickers</h2>
                 <button onclick="showView('landing')" class="text-xs text-blue-600 font-semibold hover:underline">← Back Home</button>
             </div>
 
@@ -133,7 +137,7 @@
                 <textarea id="assignTags" rows="5" placeholder="M26_101&#10;M26_102" class="mt-1 w-full px-3 py-2 border rounded-md text-sm font-mono"></textarea>
             </div>
 
-            <button onclick="submitAssign()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-md text-sm shadow-sm">Submit & Download Printable QR Stickers</button>
+            <button onclick="submitAssign()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-md text-sm shadow-sm">Submit & Print/Save A4 PDF Stickers</button>
         </div>
 
         <!-- INSTALL VIEW -->
@@ -193,6 +197,7 @@
         const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzo-wEGjhcSfvzxRJX-iDEOefNEo25ZfkruWeKqDHAN6SaRb5AZWoOJfkhEqE1Ud3N2Ug/exec";
         const ADMIN_PIN = "modulease2026";
         let pendingTargetView = '';
+        let scannedAssetUid = ''; // Stores UID from QR camera scan or file upload
 
         function showView(viewName) {
             ['landing', 'maintenance', 'assign', 'install', 'audit'].forEach(v => {
@@ -235,7 +240,7 @@
                 { facingMode: "environment" },
                 { fps: 10, qrbox: { width: 250, height: 250 } },
                 qrCodeMessage => {
-                    document.getElementById('maintUid').value = qrCodeMessage;
+                    setScannedUid(qrCodeMessage);
                     html5QrCode.stop();
                 },
                 errorMessage => {}
@@ -250,21 +255,27 @@
             const html5QrCodeScanner = new Html5Qrcode("reader");
             try {
                 const decodedText = await html5QrCodeScanner.scanFile(imageFile, true);
-                document.getElementById('maintUid').value = decodedText;
+                setScannedUid(decodedText);
                 alert("QR Code successfully scanned from image!");
             } catch (err) {
                 alert("Could not read QR code from image. Please ensure the image is clear.");
             }
         }
 
+        function setScannedUid(uid) {
+            scannedAssetUid = uid.trim();
+            const badge = document.getElementById('scannedBadge');
+            badge.innerHTML = `✅ Scanned Asset ID: <strong class="text-slate-900 font-mono">${scannedAssetUid}</strong>`;
+            badge.className = "mt-1 p-3 bg-emerald-50 border border-emerald-200 rounded-md text-sm font-mono text-emerald-800 text-center";
+        }
+
         async function submitMaintenance() {
             const location = document.getElementById('maintLocation').value.trim();
-            const uid = document.getElementById('maintUid').value.trim();
             const problemType = document.getElementById('maintProblem').value;
             const notes = document.getElementById('maintNotes').value.trim();
 
-            if (!location || !uid) {
-                alert('Please provide location and asset UID.');
+            if (!location || !scannedAssetUid) {
+                alert('Please provide a location and scan/upload the asset QR code first.');
                 return;
             }
 
@@ -274,7 +285,7 @@
                 await fetch(WEBHOOK_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action: 'maintenance', location, uid, problem_type: problemType, notes })
+                    body: JSON.stringify({ action: 'maintenance', location, uid: scannedAssetUid, problem_type: problemType, notes })
                 });
                 hideStatus();
                 alert('Maintenance ticket submitted successfully!');
@@ -323,7 +334,7 @@
 
             const tags = rawTags.split(/[\n,]+/).map(t => t.trim()).filter(t => t.length > 0);
 
-            showStatus('Assigning assets & generating QR sticker sheet...', 'bg-blue-50 text-blue-700');
+            showStatus('Assigning assets & formatting A4 PDF sticker sheet...', 'bg-blue-50 text-blue-700');
 
             try {
                 await fetch(WEBHOOK_URL, {
@@ -333,48 +344,47 @@
                 });
                 hideStatus();
                 
-                generateStickerDownload(location, category, zone, tags);
-                alert('Assets assigned successfully! Your printable QR sticker file has been downloaded.');
+                // Open A4 print-to-PDF window for stickers (20+ fit per page)
+                openPrintablePdfStickers(location, category, zone, tags);
+                alert('Assets assigned successfully! Print window opened to save as PDF.');
                 showView('landing');
             } catch (err) {
                 hideStatus();
-                generateStickerDownload(location, category, zone, tags);
-                alert('Assigned successfully! Sticker file downloaded.');
+                openPrintablePdfStickers(location, category, zone, tags);
+                alert('Assigned successfully! Print window opened.');
                 showView('landing');
             }
         }
 
-        function generateStickerDownload(location, category, zone, tags) {
-            let htmlContent = `<!DOCTYPE html><html><head><title>Stickers - ${location}</title><style>
-                body { font-family: sans-serif; margin: 20px; }
-                .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
-                .sticker { border: 2px dashed #333; padding: 15px; text-align: center; border-radius: 8px; page-break-inside: avoid; }
-                .uid { font-weight: bold; font-size: 16px; margin-top: 5px; font-family: monospace; }
-                .meta { font-size: 12px; color: #555; }
+        function openPrintablePdfStickers(location, category, zone, tags) {
+            let printWindow = window.open('', '_blank');
+            let htmlContent = `<!DOCTYPE html><html><head><title>Modulease_Stickers_${location}_${category}_${zone}</title><style>
+                @page { size: A4; margin: 10mm; }
+                body { font-family: sans-serif; margin: 0; padding: 0; color: #111; }
+                .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10mm; }
+                .sticker { border: 1.5px dashed #666; padding: 8mm; text-align: center; border-radius: 4px; page-break-inside: avoid; background: #fff; }
+                .uid { font-weight: bold; font-size: 14px; margin-top: 4px; font-family: monospace; }
+                .meta { font-size: 10px; color: #444; margin-top: 2px; }
+                h2 { font-size: 16px; margin-bottom: 5px; }
+                p { font-size: 11px; margin-top: 0; margin-bottom: 15px; color: #555; }
             </style></head><body>
             <h2>Modulease EaaS - Printable QR Stickers</h2>
-            <p><strong>Location:</strong> ${location} | <strong>Category:</strong> ${category} | <strong>Zone:</strong> ${zone}</p>
+            <p><strong>Location:</strong> ${location} &nbsp;|&nbsp; <strong>Category:</strong> ${category} &nbsp;|&nbsp; <strong>Zone:</strong> ${zone}</p>
             <div class="grid">`;
 
             tags.forEach((tag) => {
-                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(tag)}`;
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(tag)}`;
                 htmlContent += `<div class="sticker">
-                    <img src="${qrUrl}" width="120" height="120">
+                    <img src="${qrUrl}" width="90" height="90">
                     <div class="uid">${tag}</div>
-                    <div class="meta">${category} (${zone})</div>
+                    <div class="meta">${category}<br>${zone}</div>
                 </div>`;
             });
 
-            htmlContent += `</div></body></html>`;
+            htmlContent += `</div><script>window.onload = function() { window.print(); }</script></body></html>`;
 
-            const blob = new Blob([htmlContent], { type: 'text/html' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Modulease_Stickers_${location}_${Date.now()}.html`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            printWindow.document.write(htmlContent);
+            printWindow.document.close();
         }
 
         async function submitAction(action) {
@@ -453,7 +463,7 @@
         }
 
         function hideStatus() {
-            document.getElementById('statusBox').classList.add('hidden');
+            document.getElementById('statusBox'].classList.add('hidden');
         }
     </script>
 </body>
