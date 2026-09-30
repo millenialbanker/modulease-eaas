@@ -33,7 +33,7 @@
             </div>
 
             <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center hover:border-blue-500 transition cursor-pointer" onclick="promptPassword('install')">
-                <div class="text-3xl mb-2">🛠️</div>
+                <div class="text-3xl mb-2">🛠️️</div>
                 <h2 class="text-lg font-bold text-slate-800">2. Install Assets (On-Site)</h2>
                 <p class="text-xs text-slate-500 mt-1">Walkthrough setup scan & missing asset report (Protected)</p>
             </div>
@@ -378,10 +378,15 @@
                 </div>`;
             });
 
-            htmlContent += `</div><script>window.onload = function() { window.print(); }</script></body></html>`;
+            htmlContent += `</div></body></html>`;
 
             printWindow.document.write(htmlContent);
             printWindow.document.close();
+            
+            setTimeout(() => {
+                printWindow.focus();
+                printWindow.print();
+            }, 800);
         }
 
         async function submitAction(action) {
